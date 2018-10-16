@@ -1,9 +1,9 @@
 package too.simple;
 
 import too.simple.model.HttpRequestBody;
-import too.simple.response.handler.AbstractResponseHandler;
-import too.simple.response.handler.impl.DefaultResponseHandler;
+import too.simple.scheduler.PriorityScheduler;
 import too.simple.utils.Experimental;
+import too.simple.utils.HttpConstant;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -22,21 +22,11 @@ public class Request implements Serializable {
 
     public static final String CYCLE_TRIED_TIMES = "_cycle_tried_times";
 
-    public Site site;
-
-    public Page page;
-
-    private boolean isSuccess = false;
-
-    protected AbstractResponseHandler responseHandler = new DefaultResponseHandler();
-
     private String url;
 
     private String method;
 
     private HttpRequestBody requestBody;
-
-    protected String cookie = "";
 
     /**
      * Store additional information in extras.
@@ -53,7 +43,7 @@ public class Request implements Serializable {
     /**
      * Priority of the request.<br>
      * The bigger will be processed earlier. <br>
-     * @see too.simple.scheduler.PriorityScheduler
+     * @see PriorityScheduler
      */
     private long priority;
 
@@ -65,7 +55,8 @@ public class Request implements Serializable {
 
     private String charset;
 
-    public Request() {}
+    public Request() {
+    }
 
     public Request(String url) {
         this.url = url;
@@ -78,7 +69,7 @@ public class Request implements Serializable {
     /**
      * Set the priority of request for sorting.<br>
      * Need a scheduler supporting priority.<br>
-     * @see too.simple.scheduler.PriorityScheduler
+     * @see PriorityScheduler
      *
      * @param priority priority
      * @return this
@@ -89,27 +80,11 @@ public class Request implements Serializable {
         return this;
     }
 
-    public String getCookie() {
-        return cookie;
-    }
-
-    public Request setCookie(String cookie) {
-        this.cookie = cookie;
-        return this;
-    }
     public Object getExtra(String key) {
         if (extras == null) {
             return null;
         }
         return extras.get(key);
-    }
-
-    public AbstractResponseHandler getResponseHandler() {
-        return responseHandler;
-    }
-
-    public void setResponseHandler(AbstractResponseHandler responseHandler) {
-        this.responseHandler = responseHandler;
     }
 
     public Request putExtra(String key, Object value) {
@@ -133,18 +108,15 @@ public class Request implements Serializable {
         return this;
     }
 
-    public Page getPage() {
-        return page;
-    }
-
-    public void setPage(Page page) {
-        this.page = page;
+    public Request setUrl(String url) {
+        this.url = url;
+        return this;
     }
 
     /**
      * The http method of the request. Get for default.
      * @return httpMethod
-     * @see too.simple.utils.HttpConstant.Method
+     * @see HttpConstant.Method
      * @since 0.5.0
      */
     public String getMethod() {
@@ -207,14 +179,6 @@ public class Request implements Serializable {
     public Request setBinaryContent(boolean binaryContent) {
         this.binaryContent = binaryContent;
         return this;
-    }
-
-    public boolean isSuccess() {
-        return isSuccess;
-    }
-
-    public void setSuccess(boolean success) {
-        isSuccess = success;
     }
 
     public String getCharset() {

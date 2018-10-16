@@ -10,11 +10,10 @@ import too.simple.pipeline.CollectorPipeline;
 import too.simple.pipeline.ConsolePipeline;
 import too.simple.pipeline.Pipeline;
 import too.simple.pipeline.ResultItemsCollectorPipeline;
-import too.simple.proxy.HttpProxy;
+import too.simple.processor.PageProcessor;
 import too.simple.scheduler.QueueScheduler;
 import too.simple.scheduler.Scheduler;
 import too.simple.thread.CountableThreadPool;
-import too.simple.utils.HttpConstant;
 import too.simple.utils.UrlUtils;
 import too.simple.utils.WMCollections;
 
@@ -55,7 +54,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author code4crafter@gmail.com <br>
  * @see Downloader
  * @see Scheduler
- * @see
+ * @see PageProcessor
  * @see Pipeline
  * @since 0.1.0
  */
@@ -65,9 +64,11 @@ public class Spider implements Runnable, Task {
 
     protected List<Pipeline> pipelines = new ArrayList<Pipeline>();
 
+    protected PageProcessor pageProcessor;
+
     protected List<Request> startRequests;
 
-    protected Request request;
+    protected Site site;
 
     protected String uuid;
 
@@ -108,107 +109,24 @@ public class Spider implements Runnable, Task {
     private int emptySleepTime = 30000;
 
     /**
-     * 类似 Jsoup链式调用第一步，设置URL
+     * create a spider with pageProcessor.
      *
-     * @param url
-     * @return
+     * @param pageProcessor pageProcessor
+     * @return new spider
+     * @see PageProcessor
      */
-    public static Spider create(String url) {
-        return new Spider(url);
-    }
-
-
-    /**
-     * 创建接近于Jsoup的使用方式。
-     */
-    private Spider(String url) {
-        this.request = new Request(url);
-        this.request.site = Site.me();
-    }
-
-    public static Spider create() {
-        return new Spider();
-    }
-
-    private Spider() {
+    public static Spider create(PageProcessor pageProcessor) {
+        return new Spider(pageProcessor);
     }
 
     /**
-     * 批量添加cookie信息
+     * create a spider with pageProcessor.
      *
-     * @param cookies
-     * @return
+     * @param pageProcessor pageProcessor
      */
-    public Spider cookies(Map<String, String> cookies) {
-        for (Map.Entry<String, String> cookie : cookies.entrySet()) {
-            this.request.addCookie(cookie.getKey(), cookie.getValue());
-        }
-        return this;
-    }
-
-    /**
-     * 单个添加cookie
-     *
-     * @param name
-     * @param value
-     * @return
-     */
-    public Spider cookie(String name, String value) {
-        this.request.addCookie(name, value);
-        return this;
-    }
-
-    /**
-     * 批量添加header
-     *
-     * @param heades
-     * @return
-     */
-    public Spider headers(Map<String, String> heades) {
-        for (Map.Entry<String, String> header : heades.entrySet()) {
-            this.request.addCookie(header.getKey(), header.getValue());
-        }
-        return this;
-    }
-
-    /**
-     * 单个添加header
-     *
-     * @param name
-     * @param value
-     * @return
-     */
-    public Spider header(String name, String value) {
-        this.request.addHeader(name, value);
-        return this;
-    }
-
-    public Spider timeout(int timeout) {
-        this.request.site.setTimeOut(timeout);
-        return this;
-    }
-
-    public Spider retryTime(int retryTime) {
-        this.request.site.setRetryTimes(retryTime);
-        return this;
-    }
-
-    public Spider proxy(String ip, int port) {
-        this.request.site.setHttpProxy(new HttpProxy(ip, port));
-        return this;
-    }
-
-
-    /**
-     * get方式执行请求
-     *
-     * @return
-     */
-    public Spider get() {
-        this.request.setMethod(HttpConstant.Method.GET);
-        this.addRequest(this.request);
-        run();
-        return this;
+    public Spider(PageProcessor pageProcessor) {
+        this.pageProcessor = pageProcessor;
+        this.site = pageProcessor.getSite();
     }
 
     /**
@@ -254,7 +172,7 @@ public class Spider implements Runnable, Task {
      *
      * @param scheduler scheduler
      * @return this
-     * @see #setScheduler(too.simple.scheduler.Scheduler)
+     * @see #setScheduler(Scheduler)
      */
     @Deprecated
     public Spider scheduler(Scheduler scheduler) {
@@ -287,7 +205,7 @@ public class Spider implements Runnable, Task {
      *
      * @param pipeline pipeline
      * @return this
-     * @see #addPipeline(too.simple.pipeline.Pipeline)
+     * @see #addPipeline(Pipeline)
      * @deprecated
      */
     public Spider pipeline(Pipeline pipeline) {
@@ -337,7 +255,7 @@ public class Spider implements Runnable, Task {
      *
      * @param downloader downloader
      * @return this
-     * @see #setDownloader(too.simple.downloader.Downloader)
+     * @see #setDownloader(Downloader)
      * @deprecated
      */
     public Spider downloader(Downloader downloader) {
@@ -406,11 +324,6 @@ public class Spider implements Runnable, Task {
                             logger.error("process request " + request + " error", e);
                         } finally {
                             pageCount.incrementAndGet();
-                            request.site.setRetryTimes(request.site.getRetryTimes() -1);
-
-                            if (request.site.getRetryTimes() > 0 ){
-                                addRequest(request);
-                            }
                             signalNewUrl();
                         }
                     }
@@ -455,7 +368,7 @@ public class Spider implements Runnable, Task {
 
     public void close() {
         destroyEach(downloader);
-//        destroyEach(pageProcessor);
+        destroyEach(pageProcessor);
         destroyEach(scheduler);
         for (Pipeline pipeline : pipelines) {
             destroyEach(pipeline);
@@ -489,11 +402,35 @@ public class Spider implements Runnable, Task {
 
     private void processRequest(Request request) {
         Page page = downloader.download(request, this);
+        this.page = page;
+        if (page.isDownloadSuccess()) {
+            onDownloadSuccess(request, page);
+        } else {
+            onDownloaderFail(request);
+        }
+    }
+
+    private void onDownloadSuccess(Request request, Page page) {
+        if (site.getAcceptStatCode().contains(page.getStatusCode())) {
+            if (pageProcessor != null ){
+                pageProcessor.process(page);
+            }
+            extractAndAddRequests(page, spawnUrl);
+            if (!page.getResultItems().isSkip()) {
+                for (Pipeline pipeline : pipelines) {
+                    pipeline.process(page.getResultItems(), this);
+                }
+            }
+        } else {
+            logger.info("page status code error, page {} , code: {}", request.getUrl(), page.getStatusCode());
+        }
+        sleep(site.getSleepTime());
+        return;
     }
 
     private void onDownloaderFail(Request request) {
-        if (this.request.site.getCycleRetryTimes() == 0) {
-            sleep(this.request.site.getSleepTime());
+        if (site.getCycleRetryTimes() == 0) {
+            sleep(site.getSleepTime());
         } else {
             // for cycle retry
             doCycleRetry(request);
@@ -507,11 +444,11 @@ public class Spider implements Runnable, Task {
         } else {
             int cycleTriedTimes = (Integer) cycleTriedTimesObject;
             cycleTriedTimes++;
-            if (cycleTriedTimes < this.request.site.getCycleRetryTimes()) {
+            if (cycleTriedTimes < site.getCycleRetryTimes()) {
                 addRequest(SerializationUtils.clone(request).setPriority(0).putExtra(Request.CYCLE_TRIED_TIMES, cycleTriedTimes));
             }
         }
-        sleep(this.request.site.getRetrySleepTime());
+        sleep(site.getRetrySleepTime());
     }
 
     protected void sleep(int time) {
@@ -531,8 +468,8 @@ public class Spider implements Runnable, Task {
     }
 
     private void addRequest(Request request) {
-        if (this.request.site.getDomain() == null && request != null && request.getUrl() != null) {
-            this.request.site.setDomain(UrlUtils.getDomain(request.getUrl()));
+        if (site.getDomain() == null && request != null && request.getUrl() != null) {
+            site.setDomain(UrlUtils.getDomain(request.getUrl()));
         }
         scheduler.push(request, this);
     }
@@ -782,8 +719,8 @@ public class Spider implements Runnable, Task {
         if (uuid != null) {
             return uuid;
         }
-        if (this.request.site != null) {
-            return this.request.site.getDomain();
+        if (site != null) {
+            return site.getDomain();
         }
         uuid = UUID.randomUUID().toString();
         return uuid;
@@ -797,7 +734,7 @@ public class Spider implements Runnable, Task {
 
     @Override
     public Site getSite() {
-        return this.request.site;
+        return site;
     }
 
     public List<SpiderListener> getSpiderListeners() {
@@ -825,4 +762,89 @@ public class Spider implements Runnable, Task {
     public void setEmptySleepTime(int emptySleepTime) {
         this.emptySleepTime = emptySleepTime;
     }
+
+
+    /**
+     * tooSimple  about，
+     * 一下代码为tooSimple使用方式。
+     */
+    private Request request;
+    public Page page;
+
+
+    public static Spider connect(String url) {
+        Request request = new Request();
+        request.setUrl(url);
+        return new Spider(request);
+    }
+
+    public Spider(Request request) {
+        this.request = request;
+    }
+
+    public Spider header(String name, String value) {
+        if (this.site == null) this.site = Site.me();
+        this.site.addHeader(name, value);
+        return this;
+    }
+
+    public Spider headers(Map<String, String> headers) {
+        if (this.site == null) this.site = Site.me();
+        for (Map.Entry<String, String> header : headers.entrySet()) {
+            this.header(header.getKey(), header.getValue());
+        }
+        return this;
+    }
+
+    public Spider method(String method) {
+        this.request.setMethod(method);
+        return this;
+    }
+
+    public Spider retryTimes(int retryTime) {
+        if (this.site == null) this.site = Site.me();
+        this.site.setRetryTimes(retryTime);
+        return this;
+    }
+
+    public Spider timeOut(int timeOut) {
+        if (this.site == null) this.site = Site.me();
+        this.site.setTimeOut(timeOut);
+        return this;
+    }
+
+    public Spider sleepTime(int sleepTime) {
+        if (this.site == null) this.site = Site.me();
+        this.site.setSleepTime(sleepTime);
+        return this;
+    }
+
+    public Spider retrySleepTime(int sleepTime) {
+        if (this.site == null) this.site = Site.me();
+        this.site.setRetrySleepTime(sleepTime);
+        return this;
+    }
+
+    public Spider charSet(String charSet) {
+        if (this.site == null) this.site = Site.me();
+        this.site.setCharset(charSet);
+
+        if (this.request == null) this.request = new Request();
+        this.request.setCharset(charSet);
+        return this;
+    }
+
+    public Spider acceptStatCode(Set<Integer> acceptStatCode) {
+        if (this.site == null) this.site = Site.me();
+        this.site.setAcceptStatCode(acceptStatCode);
+        return this;
+    }
+
+    public Spider excute() {
+        this.addRequest(this.request);
+        this.run();
+
+        return this;
+    }
+
 }

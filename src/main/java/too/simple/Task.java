@@ -1,12 +1,15 @@
 package too.simple;
 
+import too.simple.pipeline.Pipeline;
+import too.simple.scheduler.Scheduler;
+
 /**
  * Interface for identifying different tasks.<br>
  *
  * @author code4crafter@gmail.com <br>
  * @since 0.1.0
- * @see too.simple.scheduler.Scheduler
- * @see too.simple.pipeline.Pipeline
+ * @see Scheduler
+ * @see Pipeline
  */
 public interface Task {
 

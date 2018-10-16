@@ -1,10 +1,10 @@
 package too.simple;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
-import org.apache.http.cookie.Cookie;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
+import too.simple.downloader.Downloader;
+import too.simple.pipeline.Pipeline;
+import too.simple.processor.PageProcessor;
+import too.simple.selector.Html;
 import too.simple.selector.Json;
 import too.simple.selector.Selectable;
 import too.simple.utils.HttpConstant;
@@ -13,6 +13,7 @@ import too.simple.utils.UrlUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Object storing extracted result and urls to fetch.<br>
@@ -21,18 +22,21 @@ import java.util.List;
  * {@link #getUrl()} get url of current page                   <br>
  * {@link #getHtml()}  get content of current page                 <br>
  * {@link #putField(String, Object)}  save extracted result            <br>
- * {@link #getResultItems()} get extract results to be used in {@link too.simple.pipeline.Pipeline}<br>
+ * {@link #getResultItems()} get extract results to be used in {@link Pipeline}<br>
  * {@link #addTargetRequests(List)} {@link #addTargetRequest(String)} add urls to fetch                 <br>
  *
  * @author code4crafter@gmail.com <br>
- * @see too.simple.downloader.Downloader
+ * @see Downloader
+ * @see PageProcessor
  * @since 0.1.0
  */
 public class Page {
 
+    private Request request;
+
     private ResultItems resultItems = new ResultItems();
 
-    private Document html;
+    private Html html;
 
     private Json json;
 
@@ -40,9 +44,7 @@ public class Page {
 
     private Selectable url;
 
-    private List<Cookie> cookies = new ArrayList<>();
-
-    private Header[] headers;
+    private Map<String,List<String>> headers;
 
     private int statusCode = HttpConstant.StatusCode.CODE_200;
 
@@ -53,20 +55,11 @@ public class Page {
     private List<Request> targetRequests = new ArrayList<Request>();
 
     private String charset;
-
-
-    public List<Cookie> getCookies() {
-        return cookies;
-    }
-
-    public void setCookies(List<Cookie> cookies) {
-        this.cookies = cookies;
-    }
-
+    
     public Page() {
     }
 
-    public static Page fail() {
+    public static Page fail(){
         Page page = new Page();
         page.setDownloadSuccess(false);
         return page;
@@ -81,13 +74,24 @@ public class Page {
     /**
      * store extract results
      *
-     * @param key   key
+     * @param key key
      * @param field field
      */
     public void putField(String key, Object field) {
         resultItems.put(key, field);
     }
 
+    /**
+     * get html content of page
+     *
+     * @return html
+     */
+    public Html getHtml() {
+        if (html == null) {
+            html = new Html(rawText, request.getUrl());
+        }
+        return html;
+    }
 
     /**
      * get json content of page
@@ -102,12 +106,12 @@ public class Page {
         return json;
     }
 
-    public Document getHtml() {
-        if (html == null) html = Jsoup.parse(rawText);
-        return html;
-    }
-
-    public void setHtml(Document html) {
+    /**
+     * @param html html
+     * @deprecated since 0.4.0
+     * The html is parse just when first time of calling {@link #getHtml()}, so use {@link #setRawText(String)} instead.
+     */
+    public void setHtml(Html html) {
         this.html = html;
     }
 
@@ -181,6 +185,19 @@ public class Page {
         this.url = url;
     }
 
+    /**
+     * get request of current page
+     *
+     * @return request
+     */
+    public Request getRequest() {
+        return request;
+    }
+
+    public void setRequest(Request request) {
+        this.request = request;
+        this.resultItems.setRequest(request);
+    }
 
     public ResultItems getResultItems() {
         return resultItems;
@@ -203,11 +220,11 @@ public class Page {
         return this;
     }
 
-    public Header[] getHeaders() {
+    public Map<String, List<String>> getHeaders() {
         return headers;
     }
 
-    public void setHeaders(Header[] headers) {
+    public void setHeaders(Map<String, List<String>> headers) {
         this.headers = headers;
     }
 
@@ -238,6 +255,7 @@ public class Page {
     @Override
     public String toString() {
         return "Page{" +
+                "request=" + request +
                 ", resultItems=" + resultItems +
                 ", html=" + html +
                 ", json=" + json +

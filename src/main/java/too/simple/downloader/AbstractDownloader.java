@@ -1,9 +1,9 @@
 package too.simple.downloader;
 
-import org.jsoup.nodes.Document;
 import too.simple.Page;
 import too.simple.Request;
 import too.simple.Site;
+import too.simple.selector.Html;
 
 /**
  * Base class of downloader with some common methods.
@@ -19,7 +19,7 @@ public abstract class AbstractDownloader implements Downloader {
      * @param url url
      * @return html
      */
-    public Document download(String url) {
+    public Html download(String url) {
         return download(url, null);
     }
 
@@ -30,9 +30,9 @@ public abstract class AbstractDownloader implements Downloader {
      * @param charset charset
      * @return html
      */
-    public Document download(String url, String charset) {
+    public Html download(String url, String charset) {
         Page page = download(new Request(url), Site.me().setCharset(charset).toTask());
-        return (Document) page.getHtml();
+        return (Html) page.getHtml();
     }
 
     protected void onSuccess(Request request) {

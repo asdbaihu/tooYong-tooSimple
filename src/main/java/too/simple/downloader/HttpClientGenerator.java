@@ -9,7 +9,6 @@ import org.apache.http.config.RegistryBuilder;
 import org.apache.http.config.SocketConfig;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.DefaultHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
@@ -50,9 +49,7 @@ public class HttpClientGenerator {
 
 	private SSLConnectionSocketFactory buildSSLConnectionSocketFactory() {
 		try {
-            return new SSLConnectionSocketFactory(createIgnoreVerifySSL(), new String[]{"SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"},
-                    null,
-                    new DefaultHostnameVerifier()); // 优先绕过安全证书
+			return new SSLConnectionSocketFactory(createIgnoreVerifySSL()); // 优先绕过安全证书
 		} catch (KeyManagementException e) {
             logger.error("ssl connection fail", e);
         } catch (NoSuchAlgorithmException e) {
@@ -126,32 +123,8 @@ public class HttpClientGenerator {
         connectionManager.setDefaultSocketConfig(socketConfig);
         httpClientBuilder.setRetryHandler(new DefaultHttpRequestRetryHandler(site.getRetryTimes(), true));
         generateCookie(httpClientBuilder, site);
-//        setProxy(httpClientBuilder,site);
         return httpClientBuilder.build();
     }
-
-//    /**
-//     * 用户设置相关代理信息
-//     * @param httpClientBuilder
-//     * @param site
-//     */
-//    private void setProxy(HttpClientBuilder httpClientBuilder,Site site){
-//        if (site != null && site.getHttpProxy() != null && site.getHttpProxy().validate()){
-//            HttpHost httpHost = new HttpHost(site.getHttpProxy().getIp(),site.getHttpProxy().getPort(),site.getHttpProxy().getScheme());
-//            DefaultProxyRoutePlanner defaultProxyRoutePlanner = new DefaultProxyRoutePlanner(httpHost);
-//            CredentialsProvider defaultCredentialsProvider = new BasicCredentialsProvider();
-//            defaultCredentialsProvider.setCredentials(
-//                    new AuthScope(site.getHttpProxy().getIp(),site.getHttpProxy().getPort()),
-//                    new UsernamePasswordCredentials(site.getHttpProxy().getUsername(),site.getHttpProxy().getPassword())
-//            );
-//            httpClientBuilder.setRoutePlanner(defaultProxyRoutePlanner);
-//            httpClientBuilder.setDefaultCredentialsProvider(defaultCredentialsProvider);
-//        }else if(site != null&&site.getCredentials()!=null){
-//            CredentialsProvider provider = new BasicCredentialsProvider();
-//            provider.setCredentials(AuthScope.ANY, site.getCredentials());
-//            httpClientBuilder.setDefaultCredentialsProvider(provider);
-//        }
-//    }
 
     private void generateCookie(HttpClientBuilder httpClientBuilder, Site site) {
         if (site.isDisableCookieManagement()) {

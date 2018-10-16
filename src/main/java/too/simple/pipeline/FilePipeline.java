@@ -1,6 +1,7 @@
 package too.simple.pipeline;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.http.annotation.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import too.simple.ResultItems;
@@ -19,6 +20,7 @@ import java.util.Map;
  * @author code4crafter@gmail.com <br>
  * @since 0.1.0
  */
+@ThreadSafe
 public class FilePipeline extends FilePersistentBase implements Pipeline {
 
     private Logger logger = LoggerFactory.getLogger(getClass());

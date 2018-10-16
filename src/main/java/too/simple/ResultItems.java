@@ -1,5 +1,7 @@
 package too.simple;
 
+import too.simple.pipeline.Pipeline;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -10,7 +12,7 @@ import java.util.Map;
  * @author code4crafter@gmail.com <br>
  * @since 0.1.0
  * @see Page
- * @see too.simple.pipeline.Pipeline
+ * @see Pipeline
  */
 public class ResultItems {
 

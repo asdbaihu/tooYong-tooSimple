@@ -1,7 +1,6 @@
 package too.simple;
 
-import org.apache.http.auth.UsernamePasswordCredentials;
-import too.simple.proxy.HttpProxy;
+import too.simple.processor.PageProcessor;
 import too.simple.utils.HttpConstant;
 
 import java.util.*;
@@ -10,7 +9,7 @@ import java.util.*;
  * Object contains setting for crawler.<br>
  *
  * @author code4crafter@gmail.com <br>
- * @see too.simple
+ * @see PageProcessor
  * @since 0.1.0
  */
 public class Site {
@@ -29,8 +28,6 @@ public class Site {
 
     private int retryTimes = 0;
 
-    private HttpProxy httpProxy;
-
     private int cycleRetryTimes = 0;
 
     private int retrySleepTime = 1000;
@@ -47,20 +44,8 @@ public class Site {
 
     private boolean disableCookieManagement = false;
 
-    private UsernamePasswordCredentials credentials;
-
-
     static {
         DEFAULT_STATUS_CODE_SET.add(HttpConstant.StatusCode.CODE_200);
-    }
-
-    public UsernamePasswordCredentials getCredentials() {
-        return credentials;
-    }
-
-    public Site setCredentials(UsernamePasswordCredentials credentials) {
-        this.credentials = credentials;
-        return this;
     }
 
     /**
@@ -72,13 +57,14 @@ public class Site {
         return new Site();
     }
 
-    private Site() {
+    private Site(){
+
     }
 
     /**
      * Add a cookie with domain {@link #getDomain()}
      *
-     * @param name  name
+     * @param name name
      * @param value value
      * @return this
      */
@@ -87,25 +73,17 @@ public class Site {
         return this;
     }
 
-    public HttpProxy getHttpProxy() {
-        return httpProxy;
-    }
-
-    public void setHttpProxy(HttpProxy httpProxy) {
-        this.httpProxy = httpProxy;
-    }
-
     /**
      * Add a cookie with specific domain.
      *
      * @param domain domain
-     * @param name   name
-     * @param value  value
+     * @param name name
+     * @param value value
      * @return this
      */
     public Site addCookie(String domain, String name, String value) {
-        if (!cookies.containsKey(domain)) {
-            cookies.put(domain, new HashMap<String, String>());
+        if (!cookies.containsKey(domain)){
+            cookies.put(domain,new HashMap<String, String>());
         }
         cookies.get(domain).put(name, value);
         return this;
@@ -136,7 +114,7 @@ public class Site {
      *
      * @return get cookies
      */
-    public Map<String, Map<String, String>> getAllCookies() {
+    public Map<String,Map<String, String>> getAllCookies() {
         return cookies;
     }
 
@@ -346,7 +324,6 @@ public class Site {
      * Downloader is supposed to store response cookie.
      * Disable it to ignore all cookie fields and stay clean.
      * Warning: Set cookie will still NOT work if disableCookieManagement is true.
-     *
      * @param disableCookieManagement disableCookieManagement
      * @return this
      */

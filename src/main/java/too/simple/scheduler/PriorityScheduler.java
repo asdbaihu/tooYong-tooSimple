@@ -1,5 +1,6 @@
 package too.simple.scheduler;
 
+import org.apache.http.annotation.ThreadSafe;
 import too.simple.Request;
 import too.simple.Task;
 import too.simple.utils.NumberUtils;
@@ -15,6 +16,7 @@ import java.util.concurrent.PriorityBlockingQueue;
  * @author code4crafter@gmail.com <br>
  * @since 0.2.1
  */
+@ThreadSafe
 public class PriorityScheduler extends DuplicateRemovedScheduler implements MonitorableScheduler {
 
     public static final int INITIAL_CAPACITY = 5;

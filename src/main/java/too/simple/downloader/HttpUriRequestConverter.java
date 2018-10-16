@@ -16,7 +16,7 @@ import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import too.simple.Request;
 import too.simple.Site;
-import too.simple.proxy.HttpProxy;
+import too.simple.proxy.Proxy;
 import too.simple.utils.HttpConstant;
 import too.simple.utils.UrlUtils;
 
@@ -24,20 +24,21 @@ import java.util.Map;
 
 /**
  * @author code4crafter@gmail.com
- * Date: 17/3/18
- * Time: 11:28
+ *         Date: 17/3/18
+ *         Time: 11:28
+ *
  * @since 0.7.0
  */
 public class HttpUriRequestConverter {
 
-    public HttpClientRequestContext convert(Request request, Site site) {
+    public HttpClientRequestContext convert(Request request, Site site, Proxy proxy) {
         HttpClientRequestContext httpClientRequestContext = new HttpClientRequestContext();
-        httpClientRequestContext.setHttpUriRequest(convertHttpUriRequest(request, site, site.getHttpProxy()));
-        httpClientRequestContext.setHttpClientContext(convertHttpClientContext(request, site, site.getHttpProxy()));
+        httpClientRequestContext.setHttpUriRequest(convertHttpUriRequest(request, site, proxy));
+        httpClientRequestContext.setHttpClientContext(convertHttpClientContext(request, site, proxy));
         return httpClientRequestContext;
     }
 
-    private HttpClientContext convertHttpClientContext(Request request, Site site, HttpProxy proxy) {
+    private HttpClientContext convertHttpClientContext(Request request, Site site, Proxy proxy) {
         HttpClientContext httpContext = new HttpClientContext();
         if (proxy != null && proxy.getUsername() != null) {
             AuthState authState = new AuthState();
@@ -56,7 +57,7 @@ public class HttpUriRequestConverter {
         return httpContext;
     }
 
-    private HttpUriRequest convertHttpUriRequest(Request request, Site site, HttpProxy proxy) {
+    private HttpUriRequest convertHttpUriRequest(Request request, Site site, Proxy proxy) {
         RequestBuilder requestBuilder = selectRequestMethod(request).setUri(UrlUtils.fixIllegalCharacterInUrl(request.getUrl()));
         if (site.getHeaders() != null) {
             for (Map.Entry<String, String> headerEntry : site.getHeaders().entrySet()) {
@@ -73,7 +74,7 @@ public class HttpUriRequestConverter {
         }
 
         if (proxy != null) {
-            requestConfigBuilder.setProxy(new HttpHost(proxy.getIp(), proxy.getPort()));
+            requestConfigBuilder.setProxy(new HttpHost(proxy.getHost(), proxy.getPort()));
         }
         requestBuilder.setConfig(requestConfigBuilder.build());
         HttpUriRequest httpUriRequest = requestBuilder.build();
@@ -91,7 +92,7 @@ public class HttpUriRequestConverter {
             //default get
             return RequestBuilder.get();
         } else if (method.equalsIgnoreCase(HttpConstant.Method.POST)) {
-            return addFormParams(RequestBuilder.post(), request);
+            return addFormParams(RequestBuilder.post(),request);
         } else if (method.equalsIgnoreCase(HttpConstant.Method.HEAD)) {
             return RequestBuilder.head();
         } else if (method.equalsIgnoreCase(HttpConstant.Method.PUT)) {
